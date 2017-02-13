@@ -23,8 +23,9 @@ import SRMCard from '../SRMCard/SRMCard';
 import ChallengesSidebar from '../ChallengesSidebar/ChallengesSidebar';
 import '../ChallengeCard/ChallengeCard.scss';
 
+const ID_LENGTH = 6
 const V2_API = 'https://api.topcoder.com/v2';
-
+const CHALLENGES_API = `${V2_API}/challenges/`;
 /**
  * Helper function for generation of VALID_KEYWORDS and VALID_TRACKS arrays.
  * @param {String} keyword
@@ -82,7 +83,6 @@ const SRMsSidebarMock = {
 
 // The demo component itself.
 class ChallengeFiltersExample extends React.Component {
-
   constructor(props) {
     super(props);
     this.state = {
@@ -92,18 +92,67 @@ class ChallengeFiltersExample extends React.Component {
       sidebarFilter: () => true,
     };
 
+    const that = this;
     // When the component is created, this fetches and displays all challenges.
     fetch(`${V2_API}/challenges/active`)
-    .then(res => res.json())
-    .then(res => {
-      this.setState({
-        challenges: this.state.challenges.concat(res.data),
-      });
-    });
+    .then((response) => {
+      response.json().then((json) => {
+        that.setState({
+          challenges: this.state.challenges.concat(json.data),
+        }, () => that.detailsFetcher('challenges'))
+      })
+    })
+    fetch(`${V2_API}/data/marathon/challenges/?listType=active`)
+    .then((response) => {
+      response.json().then((json) => {
+        that.setState({
+          challenges: this.state.challenges.concat(json.data),
+        }, () => that.detailsFetcher('challenges'))
+      })
+    })
 
     this.setCardType.bind(this)
-  };
+  }
 
+  // For the array of challenges stored in the state with the name 'target'
+  // (these challenge objects have been fetched from endpoints like
+  // https://api.topcoder.com/v2/challenges/active?type=develop, and
+  // they have only basic info about challenges, missing the staff we
+  // want to show in the tooltips),
+  // it fetches detailed challenge data and attaches them to the 'details'
+  // field of each challenge object.
+  detailsFetcher = (target) => {
+    let counter = 0;
+    const list = _.clone(this.state[target]);
+    this.state[target].forEach((item, index) => {
+      this.fetchChallengeDetails(item.challengeId).then(details => {
+        list[index] = _.clone(list[index]);
+        list[index].details = details;
+        let chId = item.challengeId + ''
+        if(chId.length < ID_LENGTH) {
+          list[index].details.postingDate = list[index].startDate
+          list[index].details.registrationEndDate = list[index].endDate
+          list[index].details.submissionEndDate = list[index].endDate
+          list[index].details.appealsEndDate = list[index].endDate
+        }
+        if (++counter === list.length) {
+          const update = {};
+          update[target] = list;
+          this.setState(update);
+        }
+      });
+    });
+  };
+  // Fetch Challenge Details
+  // id - challengeId
+  fetchChallengeDetails(id) {
+    const challengeId = '' + id // change to string
+    if(challengeId.length < ID_LENGTH) {
+      return fetch(`${V2_API}/data/marathon/challenges/${id}`).then(res => res.json());
+    } else {
+      return fetch(`${CHALLENGES_API}${id}`).then(res => res.json());
+    }
+  }
   /**
    * Searches the challenges for with the specified search string, competition
    * tracks, and filters.
@@ -128,7 +177,9 @@ class ChallengeFiltersExample extends React.Component {
       if (searchString) {
         const platforms = item.platforms ? item.platforms.join(' ') : '';
         const techs = item.technologies ? item.technologies.join(' ') : '';
-        const data = `${item.challengeName} ${platforms} ${techs}`.toLowerCase();
+        const marathonMatchName = item.fullName ? item.fullName : '';
+
+        const data = `${marathonMatchName} ${item.challengeName} ${platforms} ${techs}`.toLowerCase();
         if (data.indexOf(searchString.toLowerCase()) < 0) return false;
       }
       return true;
@@ -138,10 +189,20 @@ class ChallengeFiltersExample extends React.Component {
     // 'combiFilter' helper, and appends to the list of challenges displayed by
     // this component.
     const fetcher = url => {
-      fetch(url).then(res => res.json()).then(res => {
-        const d = res.data.filter(combiFilter);
-        if (d.length) this.setState({ challenges: this.state.challenges.concat(d) });
-      });
+      let that = this
+      fetch(url)
+      .then(res => res.json()).then(res => {
+        // let myChallenges = this.props.myChallenges.filter(combiFilter)
+        const data = res.data.filter(combiFilter);
+
+        // let filteredData = _.concat(data, myChallenges)
+
+        if (data.length) {
+          // this.setState({ challenges: _.union(this.state.challenges, filteredData) });
+          this.setState({ challenges: this.state.challenges.concat(data) });
+          this.detailsFetcher('challenges')
+        }
+      })
     }
 
     // Before the search, clears the list of challenges displayed by this component.
@@ -151,10 +212,16 @@ class ChallengeFiltersExample extends React.Component {
     // from the endpoint for quering DEVELOP_TRACK challenges. Thus, we should
     // not call the data science enpoint, if the develop challenges endpoint
     // was called already.
-    if (!tracks.size) fetcher(`${V2_API}/challenges/active`);
+    if (!tracks.size) {
+      fetcher(`${V2_API}/challenges/active`);
+      fetcher(`${V2_API}/data/marathon/challenges/?listType=active`);
+    }
     else {
       if (!tracks.size || tracks.has(DEVELOP_TRACK)) fetcher(`${V2_API}/challenges/active?type=develop`);
-      else if (tracks.has(DATA_SCIENCE_TRACK)) fetcher(`${V2_API}/dataScience/challenges/active`);
+      else if (tracks.has(DATA_SCIENCE_TRACK)) {
+        fetcher(`${V2_API}/data/marathon/challenges/?listType=active`);
+        fetcher(`${V2_API}/challenges/active?challengeType=First2Finish,Code&technologies=Data+Science&type=develop`);
+      }
       if (tracks.has(DESIGN_TRACK)) fetcher(`${V2_API}/challenges/active?type=design`);
     }
   };
@@ -165,18 +232,49 @@ class ChallengeFiltersExample extends React.Component {
       currentCardType: cardType
     })
   }
-
+  // construct data for marathon match which its properties name match to develop track
+  constDataForMarathonMatch(item) {
+    item.subTrack = 'MARATHON_MATCH'
+    item.track = 'DATA_SCIENCE'
+    item.challengeId = item.roundId
+    item.technologies = []
+    item.prize = []
+    item.submissionEndDate = item.endDate
+    item.totalPrize = 0
+    item.challengeName = item.fullName
+    item.numRegistrants = item.numberOfRegistrants
+    item.numSubmissions = item.numberOfSubmissions
+    item.registrationStartDate = item.startDate
+    item.currentPhaseEndDate = item.endDate
+    item.registrationOpen = 'Yes'
+  }
 
   // ReactJS render method.
   render() {
     var cardify = challenge => {
       return (
-          <ChallengeCard key={challenge.challengeId} challenge={challenge} />
+        <ChallengeCard key={challenge.challengeId} challenge={challenge} />
       )
     }
-    const challenges = this.state.challenges.filter(this.state.filter).map(item => {
-      item.subTrack = item.challengeType.toUpperCase().split(' ').join('_')
-      item.track = item.challengeCommunity.toUpperCase()
+    let myChallengesId = []
+    // get my challenges id
+    if(this.props.myChallenges) {
+       myChallengesId = this.props.myChallenges.map(function(challenge) {
+        return challenge.id
+      })
+    }
+
+    let challenges = this.state.challenges.filter(this.state.filter).map(item => {
+      if(item.roundId) {
+        this.constDataForMarathonMatch(item)
+      } else {
+        item.subTrack = item.challengeType.toUpperCase().split(' ').join('_')
+        item.track = item.challengeCommunity.toUpperCase()
+      }
+      // check the challenge id exist in my challenges id
+      if(_.indexOf(myChallengesId, item.challengeId) > -1) {
+        item.myChallenge = true
+      }
       return item
     });
 
@@ -250,6 +348,8 @@ class ChallengeFiltersExample extends React.Component {
               ref={(node) => {
                 this.sidebar = node;
               }}
+              isAuth={this.props.isAuth}
+              myChallenges={this.props.myChallenges}
             />
           </Sticky>
         </div>
