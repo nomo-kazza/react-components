@@ -62,7 +62,7 @@ function ChallengeCard ({challenge, sampleWinnerProfile}) {
       </div>
       <div className="right-panel">
         <div className="prizes">
-          <PrizesTooltip challenge={challenge.details}>
+          <PrizesTooltip challenge={challenge}>
             <div><span className="dollar">$</span>{numberWithCommas(challenge.totalPrize)}</div>
             <div className="label">1 prize</div>
           </PrizesTooltip>

@@ -17,6 +17,10 @@ import React, { PropTypes as PT } from 'react';
 import Tooltip from '../Tooltip';
 import './ProgressBarTooltip.scss';
 
+const ID_LENGTH = 6
+const BASE_URL = 'https://api.topcoder.com/v2';
+const CHALLENGES_API = `${BASE_URL}/challenges/`;
+const V2_API = 'https://api.topcoder.com/v2';
 
 const getDate = (date) => {
   return moment(date).format('MMM DD')
@@ -153,15 +157,52 @@ Tip.propTypes = {
 /**
  * Renders the tooltip.
  */
-function ProgressBarTooltip(props) {
-  const tip = <Tip challenge={props.challenge} />;
-  return (
-    <Tooltip className="progress-bar-tooltip" content={tip}>
-      {props.children}
-    </Tooltip>
-  );
-}
+class ProgressBarTooltip extends React.Component {
+  constructor(props) {
+    super(props);
+    const that = this;
+    this.state = {
+      chDetails: {}
+    }
+    this.onTooltipHover = this.onTooltipHover.bind(this)
+  }
+  onTooltipHover() {
+    const that = this;
+    console.log('hovered')
+    let chClone = _.clone(this.props.challenge);
+    this.fetchChallengeDetails(chClone.challengeId).then(details => {
+      let chId = chClone.challengeId + ''
+      if(chId.length < ID_LENGTH) {
+          details.postingDate = chClone.startDate
+          details.registrationEndDate = chClone.endDate
+          details.submissionEndDate = chClone.endDate
+          details.appealsEndDate = chClone.endDate
+        }
+      that.setState({chDetails: details})
+    });
+  }
+  // It fetches detailed challenge data and attaches them to the 'details'
+  // field of each challenge object.
+  fetchChallengeDetails = (id) => {
+    const challengeId = '' + id // change to string
+    if(challengeId.length < ID_LENGTH) {
+      console.log(`${V2_API}/data/marathon/challenges/${id} : called`)
+      return fetch(`${V2_API}/data/marathon/challenges/${id}`).then(res => res.json());
+    } else {
+      console.log(`${CHALLENGES_API}${id} : called`)
+      return fetch(`${CHALLENGES_API}${id}`).then(res => res.json());
+    }
+  }
+  render() {
 
+    const tip = <Tip challenge={this.state.chDetails} />;
+    return (
+      <Tooltip className="progress-bar-tooltip" content={tip} onTooltipHover={this.onTooltipHover}>
+        {this.props.children}
+      </Tooltip>
+    );
+  }
+}
 ProgressBarTooltip.defaultProps = {
   challenge: {},
 };

@@ -36,29 +36,6 @@ class ChallengeCardExamples extends React.Component {
     }
     const that = this;
 
-    // For the array of challenges stored in the state with the name 'target'
-    // (these challenge objects have been fetched from endpoints like
-    // https://api.topcoder.com/v2/challenges/active?type=develop, and
-    // they have only basic info about challenges, missing the staff we
-    // want to show in the tooltips),
-    // it fetches detailed challenge data and attaches them to the 'details'
-    // field of each challenge object.
-    const detailsFetcher = (target) => {
-      let counter = 0;
-      const list = _.clone(this.state[target]);
-      this.state[target].forEach((item, index) => {
-        this.fetchChallengeDetails(item.challengeId).then(details => {
-          list[index] = _.clone(list[index]);
-          list[index].details = details;
-          if (++counter === list.length) {
-            const update = {};
-            update[target] = list;
-            this.setState(update);
-          }
-        });
-      });
-    };
-
     // Fetches a sample user profile to show in User Avatar Tooltips.
     // Effective loading of all winner profiles for all challenges is
     // somewhat out of the scope of the current challenge.
@@ -69,7 +46,7 @@ class ChallengeCardExamples extends React.Component {
       response.json().then((json) => {
         that.setState({
           activeDevelopChallenges: json.data.slice(0, 15)
-        }, () => detailsFetcher('activeDevelopChallenges'));
+        });
       })
     })
     fetch(`${CHALLENGES_API}past?type=develop`, {method: 'GET', mode: 'cors'})
@@ -77,7 +54,7 @@ class ChallengeCardExamples extends React.Component {
       response.json().then((json) => {
         that.setState({
           pastDevelopChallenges: json.data.slice(0, 15)
-        }, () => detailsFetcher('pastDevelopChallenges'))
+        })
       })
     })
     fetch(`${CHALLENGES_API}active?type=design`, {method: 'GET', mode: 'cors'})
@@ -85,7 +62,7 @@ class ChallengeCardExamples extends React.Component {
       response.json().then((json) => {
         that.setState({
           activeDesignChallenges: json.data.slice(0, 15)
-        }, () => detailsFetcher('activeDesignChallenges'))
+        })
       })
     })
     fetch(`${CHALLENGES_API}past?type=design`, {method: 'GET', mode: 'cors'})
@@ -93,7 +70,7 @@ class ChallengeCardExamples extends React.Component {
       response.json().then((json) => {
         that.setState({
           pastDesignChallenges: json.data.slice(0, 15)
-        }, () => detailsFetcher('pastDesignChallenges'))
+        })
       })
     })
      // fetch marathon match
@@ -106,10 +83,6 @@ class ChallengeCardExamples extends React.Component {
         })
       })
     })
-  }
-
-  fetchChallengeDetails(id) {
-    return fetch(`${CHALLENGES_API}${id}`).then(res => res.json());
   }
 
   fetchUserProfile(handle) {

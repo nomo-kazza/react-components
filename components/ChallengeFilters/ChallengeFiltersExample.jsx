@@ -99,7 +99,7 @@ class ChallengeFiltersExample extends React.Component {
       response.json().then((json) => {
         that.setState({
           challenges: this.state.challenges.concat(json.data),
-        }, () => that.detailsFetcher('challenges'))
+        })
       })
     })
     fetch(`${V2_API}/data/marathon/challenges/?listType=active`)
@@ -107,52 +107,13 @@ class ChallengeFiltersExample extends React.Component {
       response.json().then((json) => {
         that.setState({
           challenges: this.state.challenges.concat(json.data),
-        }, () => that.detailsFetcher('challenges'))
+        })
       })
     })
 
     this.setCardType.bind(this)
   }
 
-  // For the array of challenges stored in the state with the name 'target'
-  // (these challenge objects have been fetched from endpoints like
-  // https://api.topcoder.com/v2/challenges/active?type=develop, and
-  // they have only basic info about challenges, missing the staff we
-  // want to show in the tooltips),
-  // it fetches detailed challenge data and attaches them to the 'details'
-  // field of each challenge object.
-  detailsFetcher = (target) => {
-    let counter = 0;
-    const list = _.clone(this.state[target]);
-    this.state[target].forEach((item, index) => {
-      this.fetchChallengeDetails(item.challengeId).then(details => {
-        list[index] = _.clone(list[index]);
-        list[index].details = details;
-        let chId = item.challengeId + ''
-        if(chId.length < ID_LENGTH) {
-          list[index].details.postingDate = list[index].startDate
-          list[index].details.registrationEndDate = list[index].endDate
-          list[index].details.submissionEndDate = list[index].endDate
-          list[index].details.appealsEndDate = list[index].endDate
-        }
-        if (++counter === list.length) {
-          const update = {};
-          update[target] = list;
-          this.setState(update);
-        }
-      });
-    });
-  };
-  // Fetch Challenge Details
-  // id - challengeId
-  fetchChallengeDetails(id) {
-    const challengeId = '' + id // change to string
-    if(challengeId.length < ID_LENGTH) {
-      return fetch(`${V2_API}/data/marathon/challenges/${id}`).then(res => res.json());
-    } else {
-      return fetch(`${CHALLENGES_API}${id}`).then(res => res.json());
-    }
-  }
   /**
    * Searches the challenges for with the specified search string, competition
    * tracks, and filters.
@@ -192,15 +153,10 @@ class ChallengeFiltersExample extends React.Component {
       let that = this
       fetch(url)
       .then(res => res.json()).then(res => {
-        // let myChallenges = this.props.myChallenges.filter(combiFilter)
         const data = res.data.filter(combiFilter);
 
-        // let filteredData = _.concat(data, myChallenges)
-
         if (data.length) {
-          // this.setState({ challenges: _.union(this.state.challenges, filteredData) });
           this.setState({ challenges: this.state.challenges.concat(data) });
-          this.detailsFetcher('challenges')
         }
       })
     }

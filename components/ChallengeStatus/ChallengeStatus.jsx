@@ -131,7 +131,7 @@ function ChallengeStatus ({challenge, sampleWinnerProfile}) {
             : renderRegisterButton()
           }
         </span>
-        <ProgressBarTooltip challenge={challenge.details}>
+        <ProgressBarTooltip challenge={challenge}>
           {
             challenge.status === 'Active' ?
             <div>
